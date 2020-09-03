@@ -31,9 +31,6 @@ obj-$(CONFIG_CGROUP_DEVICE)		+= device_cgroup.o
 subdir-$(CONFIG_INTEGRITY)		+= integrity
 obj-$(CONFIG_INTEGRITY)			+= integrity/
 
-# MST driver
-obj-$(CONFIG_MST_LDO)	  += mstdrv/
-
 # HDM driver
 obj-$(CONFIG_HDM)			+= hdm/
 
