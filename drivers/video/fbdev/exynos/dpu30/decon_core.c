@@ -4215,6 +4215,7 @@ static int decon_ioctl(struct fb_info *info, unsigned int cmd,
 #ifdef CONFIG_EXYNOS_SET_ACTIVE
 	struct exynos_display_mode display_mode;
 	struct exynos_display_mode *mode;
+	struct decon_reg_data decon_regs;
 #endif
 	int ret = 0;
 	u32 crtc;
@@ -4625,6 +4626,51 @@ static int decon_ioctl(struct fb_info *info, unsigned int cmd,
 					&display_mode, _IOC_SIZE(cmd))) {
 			ret = -EFAULT;
 			break;
+		}
+		break;
+
+	case EXYNOS_SET_DISPLAY_MODE:
+		if (copy_from_user(&display_mode,
+				   (void __user *)arg,
+				   _IOC_SIZE(cmd))) {
+			ret = -EFAULT;
+			break;
+		}
+
+		if (display_mode.index >= lcd_info->display_mode_count) {
+			decon_err("not valid display mode index(%d)\n",
+					display_mode.index);
+			ret = -EINVAL;
+			break;
+		}
+
+		mode = &lcd_info->display_mode[display_mode.index].mode;
+		memcpy(&display_mode, mode, sizeof(display_mode));
+
+		if (!IS_DECON_OFF_STATE(decon)) {
+			memset(&decon_regs, 0, sizeof(struct decon_reg_data));
+
+			decon_regs.mode_update = true;
+			decon_regs.lcd_width = mode->width;
+			decon_regs.lcd_height = mode->height;
+			decon_regs.mode_idx = display_mode.index;
+			decon_regs.vrr_config.fps = mode->fps;
+			if (display_mode.index == 0 || display_mode.index == 1 ||
+				display_mode.index == 5 || display_mode.index == 6 ||
+				display_mode.index == 10 || display_mode.index == 11 ) {
+				decon_regs.vrr_config.mode = DECON_WIN_STATE_VRR_NORMALMODE;
+			} else {
+				decon_regs.vrr_config.mode = DECON_WIN_STATE_VRR_HSMODE;
+			}
+			/* Update LCD infos in decon regs for MRES */
+			dpu_update_mres_lcd_info(decon, &decon_regs);
+			/* apply multi-resolution configuration */
+			dpu_set_mres_config(decon, &decon_regs);
+			/* Update LCD infos in decon regs for VRR */
+			dpu_update_vrr_lcd_info(decon, &decon_regs.vrr_config);
+			/* Apply VRR configuration */
+			dpu_set_vrr_config(decon, &decon_regs.vrr_config);
+
 		}
 		break;
 #endif
