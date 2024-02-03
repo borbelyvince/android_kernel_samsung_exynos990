@@ -1704,11 +1704,11 @@ static unsigned int decon_map_ion_handle(struct decon_device *decon,
 		struct device *dev, struct decon_dma_buf_data *dma,
 		struct dma_buf *buf, int win_no)
 {
-//debug DMA_BUF
+#ifdef DEBUG_DMA_BUF_LEAK
 	struct dma_buf_attachment *attach_obj;
 	struct dma_buf *dma_buf;
 	int attach_count = 0;
-//for debug
+#endif
 #if defined(CONFIG_EXYNOS_IOVMM)
 	struct exynos_iovmm *vmm;
 #endif
@@ -1779,11 +1779,11 @@ static unsigned int decon_map_ion_handle(struct decon_device *decon,
 	if (IS_ERR_VALUE(dma->dma_addr)) {
 		decon_err("ion_iovmm_map() failed: %pa\n", &dma->dma_addr);
 		decon_err("remaining_frame : %d", atomic_read(&decon->up.remaining_frame));
-
+#ifdef DEBUG_DMA_BUF_LEAK
 		decon_info("attached count : %d\n", attach_count);
 		decon_info("leak cnt : %d\n", decon->leak_cnt);
 		print_dma_leak_info(decon);
-
+#endif
 		BUG();
 		goto err_iovmm_map;
 	}
