@@ -56,7 +56,7 @@
 #include <linux/sti/abc_common.h>
 #endif
 
-#define CONFIG_PROFILE_WINCONFIG	1
+/*#define CONFIG_PROFILE_WINCONFIG	1*/
 
 #define SUCCESS_EXYNOS_SMC	0
 
