@@ -58,7 +58,8 @@
 
 #include "../../../../iommu/exynos-iommu.h"
 
-
+#define DECON_4K_RESOLUTION_HEIGHT 3200
+#define DECON_4K_RESOLUTION_WIDTH  1440
 
 int decon_log_level = 6;
 module_param(decon_log_level, int, 0644);
@@ -2997,6 +2998,15 @@ static void decon_update_fps(struct decon_device *decon,
 	decon_systrace(decon, 'B', "decon_update_fps", 0);
 }
 
+static void decon_update_resolution(struct decon_device *decon,
+			struct decon_reg_data *regs)
+{
+	decon_exit_hiber(decon);
+	decon_systrace(decon, 'B', "decon_update_resolution", 1);
+	dpu_update_mres_lcd_info(decon, regs);
+	dpu_set_mres_config(decon, regs);
+	decon_systrace(decon, 'B', "decon_update_resolution", 0);
+}
 
 #define GET_WINCONFIG_TIME(regs)	(ktime_to_us(ktime_sub(ktime_get(), regs->create_time)))
 
@@ -4654,23 +4664,44 @@ static int decon_ioctl(struct fb_info *info, unsigned int cmd,
 			decon_regs.lcd_width = mode->width;
 			decon_regs.lcd_height = mode->height;
 			decon_regs.mode_idx = display_mode.index;
-			decon_regs.vrr_config.fps = mode->fps;
-			if (display_mode.index == 0 || display_mode.index == 1 ||
-				display_mode.index == 5 || display_mode.index == 6 ||
-				display_mode.index == 10 || display_mode.index == 11 ) {
+			
+			if (lcd_info->display_mode[display_mode.index].mode.width == DECON_4K_RESOLUTION_WIDTH ||
+			     lcd_info->display_mode[display_mode.index].mode.height == DECON_4K_RESOLUTION_HEIGHT) {
+				/* 
+				 * QHD+ resolution just supports normal mode on all known exynos9830 devices. So
+				 * this path is taken unconditionally when a QHD+ resolution is requested.
+				 */
+				decon_regs.vrr_config.fps = mode->fps;
 				decon_regs.vrr_config.mode = DECON_WIN_STATE_VRR_NORMALMODE;
-			} else {
+				decon_update_resolution(decon, &decon_regs);
+			} else if (((lcd_info->display_mode[lcd_info->cur_mode_idx].mode.width != lcd_info->display_mode[display_mode.index].mode.width) ||
+			(lcd_info->display_mode[lcd_info->cur_mode_idx].mode.height != lcd_info->display_mode[display_mode.index].mode.height))) {
+				/* 
+				 * If we are here, means that a resolution change has been requested.
+				 * First switch to 60 FPS normal mode, then switch to the resolution
+				 * requested by the user. This path is taken when switching from QHD+
+				 * resolution to FHD/HD resolution, or switching between FHD and HD
+				 * (this last option however is not supported on AOSP).
+				 */
+				decon_regs.vrr_config.fps = 60; /* Request 60 fps first */
+				decon_regs.vrr_config.mode = DECON_WIN_STATE_VRR_NORMALMODE;
+				/* Switch to 60 normal mode before performing the resolution change */
+				decon_update_fps(decon, &decon_regs);
+				/* Perform resolution switch*/
+				decon_update_resolution(decon, &decon_regs);
+				/* Swith to user requested fps . Always choose highspeed mode. */
+				decon_regs.vrr_config.fps = mode->fps;
 				decon_regs.vrr_config.mode = DECON_WIN_STATE_VRR_HSMODE;
+				decon_update_fps(decon, &decon_regs);
+			} else {
+				/* 
+				 * Just FPS change has been requested. This path is taken just on
+				 * FHD/HD resolution which supports multiple FPS.
+				 */
+				decon_regs.vrr_config.fps = mode->fps;
+				decon_regs.vrr_config.mode = DECON_WIN_STATE_VRR_HSMODE;
+				decon_update_fps(decon, &decon_regs);
 			}
-			/* Update LCD infos in decon regs for MRES */
-			dpu_update_mres_lcd_info(decon, &decon_regs);
-			/* apply multi-resolution configuration */
-			dpu_set_mres_config(decon, &decon_regs);
-			/* Update LCD infos in decon regs for VRR */
-			dpu_update_vrr_lcd_info(decon, &decon_regs.vrr_config);
-			/* Apply VRR configuration */
-			dpu_set_vrr_config(decon, &decon_regs.vrr_config);
-
 		}
 		break;
 #endif
