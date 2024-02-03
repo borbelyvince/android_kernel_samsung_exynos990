@@ -112,7 +112,7 @@ extern struct decon_bts_ops decon_bts_control;
 
 #define MAX_DSC_SLICE_CNT	4
 
-#define DEBUG_DMA_BUF_LEAK	1
+/*#define DEBUG_DMA_BUF_LEAK	1*/
 
 #if defined(CONFIG_EXYNOS_COMMON_PANEL)
 #define MIN_FRAME_DONE_ERR_CHECK_USEC (8000) /* 8ms */
