@@ -4664,6 +4664,7 @@ static int decon_ioctl(struct fb_info *info, unsigned int cmd,
 			decon_regs.lcd_width = mode->width;
 			decon_regs.lcd_height = mode->height;
 			decon_regs.mode_idx = display_mode.index;
+			decon_regs.vrr_config.mode = DECON_WIN_STATE_VRR_NORMALMODE;
 			
 			if (lcd_info->display_mode[display_mode.index].mode.width == DECON_4K_RESOLUTION_WIDTH ||
 			     lcd_info->display_mode[display_mode.index].mode.height == DECON_4K_RESOLUTION_HEIGHT) {
@@ -4672,7 +4673,6 @@ static int decon_ioctl(struct fb_info *info, unsigned int cmd,
 				 * this path is taken unconditionally when a QHD+ resolution is requested.
 				 */
 				decon_regs.vrr_config.fps = mode->fps;
-				decon_regs.vrr_config.mode = DECON_WIN_STATE_VRR_NORMALMODE;
 				decon_update_resolution(decon, &decon_regs);
 			} else if (((lcd_info->display_mode[lcd_info->cur_mode_idx].mode.width != lcd_info->display_mode[display_mode.index].mode.width) ||
 			(lcd_info->display_mode[lcd_info->cur_mode_idx].mode.height != lcd_info->display_mode[display_mode.index].mode.height))) {
@@ -4684,14 +4684,15 @@ static int decon_ioctl(struct fb_info *info, unsigned int cmd,
 				 * (this last option however is not supported on AOSP).
 				 */
 				decon_regs.vrr_config.fps = 60; /* Request 60 fps first */
-				decon_regs.vrr_config.mode = DECON_WIN_STATE_VRR_NORMALMODE;
 				/* Switch to 60 normal mode before performing the resolution change */
 				decon_update_fps(decon, &decon_regs);
 				/* Perform resolution switch*/
 				decon_update_resolution(decon, &decon_regs);
-				/* Swith to user requested fps . Always choose highspeed mode. */
+				/* Swith to user requested fps. */
 				decon_regs.vrr_config.fps = mode->fps;
-				decon_regs.vrr_config.mode = DECON_WIN_STATE_VRR_HSMODE;
+				if (mode->fps > 60) {
+					decon_regs.vrr_config.mode = DECON_WIN_STATE_VRR_HSMODE;
+				}
 				decon_update_fps(decon, &decon_regs);
 			} else {
 				/* 
@@ -4699,7 +4700,9 @@ static int decon_ioctl(struct fb_info *info, unsigned int cmd,
 				 * FHD/HD resolution which supports multiple FPS.
 				 */
 				decon_regs.vrr_config.fps = mode->fps;
-				decon_regs.vrr_config.mode = DECON_WIN_STATE_VRR_HSMODE;
+				if (mode->fps > 60) {
+					decon_regs.vrr_config.mode = DECON_WIN_STATE_VRR_HSMODE;
+				}
 				decon_update_fps(decon, &decon_regs);
 			}
 		}
