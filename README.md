@@ -1,9 +1,9 @@
-# ExtremeKernel for Exynos 990 devices
+# ExtremeKernel for Exynos 990 devices (AOSP fork by borbelyvince)
 
 ## Features
 
 - Linux 4.19.87
-- OneUI 5.1 and OneUI 6.0 support
+- AOSP support
 - Supports all Exynos 990 devices
 - Compiled with Neutron Clang 18 + LLVM/LLVM_IAS and arhitecture optimization
 - Optional KernelSU v0.9.3 (version 11804) support
