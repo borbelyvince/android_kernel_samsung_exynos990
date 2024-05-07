@@ -803,7 +803,7 @@ struct zt_ts_info {
 	u8 fod_info_vi_trx[3];
 	u16 fod_info_vi_data_len;
 	u16 fod_rect[4];
-	int fod_pressed;
+	bool fod_pressed;
 
 	u16 aod_rect[4];
 	u16 aod_active_area[3];
@@ -1604,23 +1604,13 @@ static ssize_t secure_touch_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%u", val);
 }
 
-static ssize_t zt_fod_pressed_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct zt_ts_info *info = dev_get_drvdata(dev);
-
-	return snprintf(buf, PAGE_SIZE, "%u\n", info->fod_pressed);
-}
-
 static DEVICE_ATTR(secure_touch_enable, (S_IRUGO | S_IWUSR | S_IWGRP),
 		secure_touch_enable_show, secure_touch_enable_store);
 static DEVICE_ATTR(secure_touch, S_IRUGO, secure_touch_show, NULL);
-static DEVICE_ATTR(fod_pressed, S_IRUGO, zt_fod_pressed_show, NULL);
 
 static struct attribute *secure_attr[] = {
 	&dev_attr_secure_touch_enable.attr,
 	&dev_attr_secure_touch.attr,
-	&dev_attr_fod_pressed.attr,
 	NULL,
 };
 
@@ -8179,6 +8169,14 @@ static ssize_t fod_pos_show(struct device *dev,
 	return strlen(buf);
 }
 
+static ssize_t fod_pressed_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct zt_ts_info *info = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%u\n", info->fod_pressed);
+}
+
 static ssize_t aod_active_area(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -8641,6 +8639,7 @@ static DEVICE_ATTR(support_feature, S_IRUGO, read_support_feature, NULL);
 static DEVICE_ATTR(virtual_prox, S_IRUGO | S_IWUSR | S_IWGRP, protos_event_show, protos_event_store);
 static DEVICE_ATTR(fod_info, S_IRUGO, fod_info_show, NULL);
 static DEVICE_ATTR(fod_pos, S_IRUGO, fod_pos_show, NULL);
+static DEVICE_ATTR(fod_pressed, 0444, fod_pressed_show, NULL);
 static DEVICE_ATTR(aod_active_area, 0444, aod_active_area, NULL);
 #if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
 static DEVICE_ATTR(read_reg_data, S_IRUGO | S_IWUSR | S_IWGRP, read_reg_show, store_read_reg);
@@ -8661,6 +8660,7 @@ static struct attribute *touchscreen_attributes[] = {
 	&dev_attr_virtual_prox.attr,
 	&dev_attr_fod_info.attr,
 	&dev_attr_fod_pos.attr,
+	&dev_attr_fod_pressed.attr,
 #if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
 	&dev_attr_read_reg_data.attr,
 	&dev_attr_write_reg_data.attr,
