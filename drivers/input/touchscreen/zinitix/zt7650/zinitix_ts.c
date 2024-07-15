@@ -789,6 +789,7 @@ struct zt_ts_info {
 	bool flip_enable;
 	bool spay_enable;
 	bool fod_enable;
+	atomic_t fod_pressed;
 	bool fod_lp_mode;
 	bool singletap_enable;
 	bool aod_enable;
@@ -1427,7 +1428,7 @@ static void zt_set_lp_mode(struct zt_ts_info *info, int event, bool enable)
 
 	if (enable) {
 		zinitix_bit_set(info->lpm_mode, event);
-		info->fod_pressed = 0;
+		atomic_set(&info->fod_pressed, 0);
 	}
 	else {
 		zinitix_bit_clr(info->lpm_mode, event);
@@ -1860,6 +1861,14 @@ static bool ts_get_raw_data(struct zt_ts_info *info)
 	return true;
 }
 
+static ssize_t fod_pressed_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct sec_cmd_data *sec = dev_get_drvdata(dev);
+	struct zt_ts_info *info = container_of(sec, struct zt_ts_info, sec);
+
+	return snprintf(buf, PAGE_SIZE, "%d", atomic_read(&info->fod_pressed));
+}
+
 static void zt_ts_fod_event_report(struct zt_ts_info *info, struct point_info touch_info)
 {
 	if (!info->fod_enable)
@@ -1873,6 +1882,9 @@ static void zt_ts_fod_event_report(struct zt_ts_info *info, struct point_info to
 			| ((touch_info.byte04.value_u8bit & 0xF0) >> 4);
 		info->scrub_y = ((touch_info.byte03.value_u8bit << 4) & 0xFF0)
 			| ((touch_info.byte04.value_u8bit & 0x0F));
+
+		atomic_set(&info->fod_pressed, 1);
+		sysfs_notify(&info->sec.fac_dev->kobj, NULL, "fod_pressed");
 #ifdef CONFIG_SAMSUNG_PRODUCT_SHIP
 		input_info(true, &info->client->dev, "%s: FOD %s PRESS: %d\n", __func__,
 				touch_info.byte01.value_u8bit ? "NORMAL" : "LONG", info->scrub_id);
@@ -1888,6 +1900,9 @@ static void zt_ts_fod_event_report(struct zt_ts_info *info, struct point_info to
 			| ((touch_info.byte04.value_u8bit & 0xF0) >> 4);
 		info->scrub_y = ((touch_info.byte03.value_u8bit << 4) & 0xFF0)
 			| ((touch_info.byte04.value_u8bit & 0x0F));
+
+		atomic_set(&info->fod_pressed, 0);
+		sysfs_notify(&info->sec.fac_dev->kobj, NULL, "fod_pressed");
 #ifdef CONFIG_SAMSUNG_PRODUCT_SHIP
 		input_info(true, &info->client->dev, "%s: FOD RELEASE: %d\n", __func__, info->scrub_id);
 #else
@@ -1901,6 +1916,9 @@ static void zt_ts_fod_event_report(struct zt_ts_info *info, struct point_info to
 			| ((touch_info.byte04.value_u8bit & 0xF0) >> 4);
 		info->scrub_y = ((touch_info.byte03.value_u8bit << 4) & 0xFF0)
 			| ((touch_info.byte04.value_u8bit & 0x0F));
+
+		atomic_set(&info->fod_pressed, 0);
+		sysfs_notify(&info->sec.fac_dev->kobj, NULL, "fod_pressed");
 #ifdef CONFIG_SAMSUNG_PRODUCT_SHIP
 		input_info(true, &info->client->dev, "%s: FOD OUT: %d\n", __func__, info->scrub_id);
 #else
@@ -3763,6 +3781,8 @@ static int  zt_ts_open(struct input_dev *dev)
 	}
 
 	input_info(true, &info->client->dev, "%s, %d \n", __func__, __LINE__);
+	atomic_set(&info->fod_pressed, 0);
+
 
 #ifdef CONFIG_TRUSTONIC_TRUSTED_UI
 	zt_delay(100);
@@ -3855,6 +3875,7 @@ static void zt_ts_close(struct input_dev *dev)
 		return;
 	}
 
+	atomic_set(&info->fod_pressed, 0);
 	input_info(true, &info->client->dev,
 			"%s, spay:%d aod:%d aot:%d singletap:%d prox:%ld pocket:%d ed:%d\n",
 			__func__, info->spay_enable, info->aod_enable,
@@ -8626,6 +8647,7 @@ static DEVICE_ATTR(support_feature, S_IRUGO, read_support_feature, NULL);
 static DEVICE_ATTR(virtual_prox, S_IRUGO | S_IWUSR | S_IWGRP, protos_event_show, protos_event_store);
 static DEVICE_ATTR(fod_info, S_IRUGO, fod_info_show, NULL);
 static DEVICE_ATTR(fod_pos, S_IRUGO, fod_pos_show, NULL);
+static DEVICE_ATTR(fod_pressed, S_IRUGO, fod_pressed_show, NULL);
 static DEVICE_ATTR(aod_active_area, 0444, aod_active_area, NULL);
 #if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
 static DEVICE_ATTR(read_reg_data, S_IRUGO | S_IWUSR | S_IWGRP, read_reg_show, store_read_reg);
@@ -8646,6 +8668,7 @@ static struct attribute *touchscreen_attributes[] = {
 	&dev_attr_virtual_prox.attr,
 	&dev_attr_fod_info.attr,
 	&dev_attr_fod_pos.attr,
+	&dev_attr_fod_pressed.attr,
 #if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
 	&dev_attr_read_reg_data.attr,
 	&dev_attr_write_reg_data.attr,
